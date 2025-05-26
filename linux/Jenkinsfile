@@ -1,0 +1,488 @@
+pipeline {
+    agent any
+    environment {
+        DOCKER_CREDENTIALS_ID = 'docker-credentials'
+        SONAR_TOKEN = credentials('trigger-build-containerd')
+        // NEW: Security tool credentials
+        OWASP_DC_TOKEN = credentials('owasp-dependency-check-token')
+        ZAP_API_KEY = credentials('zap-api-key')
+        TRIVY_TOKEN = credentials('trivy-token')
+        GRAFANA_API_KEY = credentials('grafana-api-key')
+        
+        // NEW: Security thresholds
+        DEPENDENCY_CHECK_THRESHOLD = '7'  // CVSS threshold
+        TRIVY_EXIT_CODE = '1'             // Exit on HIGH/CRITICAL
+        ZAP_THRESHOLD = '3'               // Max HIGH risk alerts
+        
+        // NEW: Tool versions for consistency
+        TRIVY_VERSION = '0.48.3'
+        OWASP_DC_VERSION = '9.0.7'
+        ZAP_VERSION = '2.14.0'
+    }
+    
+    tools {
+        maven "maven"
+        //nodejs "node22"
+    }
+    
+    stages {
+        stage('Check') {
+            steps {
+                checkout scm
+                // NEW: Setup security tools cache
+                script {
+                    sh '''
+                        mkdir -p $WORKSPACE/.security-cache/{trivy,owasp-dc,zap}
+                        chmod 755 $WORKSPACE/.security-cache/{trivy,owasp-dc,zap}
+                    '''
+                }
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                script {
+                    def services = [
+                        'config-server',
+                        'eureka-server',
+                        'gateway-server',
+                        'ms-customer',
+                        'ms-executive',
+                        'ms-loan',
+                        'ms-request',
+                        'ms-simulation',
+                        'frontend-ms'
+                    ]
+                    services.each { service ->
+                        dir(service) {
+                            if (service == 'frontend-ms') {
+                                sh "npm install"
+                                sh "npm run build"
+                            } else {
+                                sh "mvn clean install -DskipTests"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Unit Testing') {
+            steps {
+                script {
+                    def services = [
+                        'ms-customer',
+                        'ms-executive',
+                        'ms-loan',
+                        'ms-request',
+                        'ms-simulation'
+                    ]
+                    services.each { service ->
+                        dir(service) {
+                            sh "mvn test jacoco:report"
+                        }
+                    }
+                }
+            }
+        }
+        
+        // NEW: Parallel Security Analysis Stage
+        stage('Security Analysis') {
+            parallel {
+                stage('PMD Analysis') {
+                    steps {
+                        script {
+                            def services = [
+                                'config-server',
+                                'eureka-server',
+                                'gateway-server',
+                                'ms-customer',
+                                'ms-executive',
+                                'ms-loan',
+                                'ms-request',
+                                'ms-simulation'
+                            ]
+                            services.each { service ->
+                                dir(service) {
+                                    sh "mvn pmd:pmd"
+                                    sh "python3 \"\$WORKSPACE/PMD_TO_SQ.py\""
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                stage('OWASP Dependency Check') {
+                    steps {
+                        script {
+                            def services = [
+                                'config-server',
+                                'eureka-server',
+                                'gateway-server',
+                                'ms-customer',
+                                'ms-executive',
+                                'ms-loan',
+                                'ms-request',
+                                'ms-simulation'
+                            ]
+                            
+                            // Install/Update OWASP Dependency Check
+                            sh '''
+                                if [ ! -f "$WORKSPACE/.security-cache/owasp-dc/dependency-check-${OWASP_DC_VERSION}-release.zip" ]; then
+                                    echo "Downloading OWASP Dependency Check..."
+                                    cd $WORKSPACE/.security-cache/owasp-dc
+                                    wget -q https://github.com/jeremylong/DependencyCheck/releases/download/v${OWASP_DC_VERSION}/dependency-check-${OWASP_DC_VERSION}-release.zip
+                                    unzip -q dependency-check-${OWASP_DC_VERSION}-release.zip
+                                    chmod +x dependency-check/bin/dependency-check.sh
+                                fi
+                            '''
+                            
+                            services.each { service ->
+                                dir(service) {
+                                    sh '''
+                                        $WORKSPACE/.security-cache/owasp-dc/dependency-check/bin/dependency-check.sh \
+                                            --scan . \
+                                            --format XML \
+                                            --format JSON \
+                                            --format HTML \
+                                            --out target/dependency-check \
+                                            --failOnCVSS ${DEPENDENCY_CHECK_THRESHOLD} \
+                                            --data $WORKSPACE/.security-cache/owasp-dc/data \
+                                            --suppression $WORKSPACE/security-configs/dependency-check-suppressions.xml \
+                                            --enableExperimental
+                                    '''
+                                }
+                            }
+                            
+                            // Frontend dependency check
+                            dir('frontend-ms') {
+                                sh '''
+                                    $WORKSPACE/.security-cache/owasp-dc/dependency-check/bin/dependency-check.sh \
+                                        --scan . \
+                                        --format XML \
+                                        --format JSON \
+                                        --format HTML \
+                                        --out target/dependency-check \
+                                        --failOnCVSS ${DEPENDENCY_CHECK_THRESHOLD} \
+                                        --data $WORKSPACE/.security-cache/owasp-dc/data \
+                                        --suppression $WORKSPACE/security-configs/dependency-check-suppressions.xml \
+                                        --enableExperimental
+                                '''
+                            }
+                        }
+                    }
+                    post {
+                        always {
+                            // Archive dependency check reports
+                            archiveArtifacts artifacts: '**/target/dependency-check/**', allowEmptyArchive: true
+                            publishHTML([
+                                allowMissing: false,
+                                alwaysLinkToLastBuild: true,
+                                keepAll: true,
+                                reportDir: 'target/dependency-check',
+                                reportFiles: 'dependency-check-report.html',
+                                reportName: 'OWASP Dependency Check Report'
+                            ])
+                        }
+                    }
+                }
+                
+                stage('SonarQube Analysis') {
+                    steps {
+                        withSonarQubeEnv("DevSecOps Lab3") {
+                            script {
+                                def services = [
+                                    'config-server',
+                                    'eureka-server',
+                                    'gateway-server',
+                                    'ms-customer',
+                                    'ms-executive',
+                                    'ms-loan',
+                                    'ms-request',
+                                    'ms-simulation'
+                                ]
+                                services.each { service ->
+                                    dir(service) {
+                                        sh '''
+                                            mvn sonar:sonar \
+                                            -Dsonar.token=$SONAR_TOKEN \
+                                            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+                                            -Dsonar.coverage.inclusions=**/service/*.java \
+                                            -Dsonar.exclusions=**/controller/** \
+                                            -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json \
+                                            -Dsonar.maven.plugin.version=4.0.0.4121 \
+                                            -Dsonar.dependencyCheck.reportPath=target/dependency-check/dependency-check-report.xml
+                                        '''
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // NEW: Enhanced Docker Build with Trivy Scanning
+        stage('Docker Build and Security Scan') {
+            steps {
+                script {
+                    def services = [
+                        'config-server',
+                        'eureka-server',
+                        'gateway-server',
+                        'ms-customer',
+                        'ms-executive',
+                        'ms-loan',
+                        'ms-request',
+                        'ms-simulation',
+                        'frontend-ms'
+                    ]
+                    
+                    // Install Trivy
+                    sh '''
+                        if [ ! -f "$WORKSPACE/.security-cache/trivy/trivy" ]; then
+                            echo "Installing Trivy..."
+                            cd $WORKSPACE/.security-cache/trivy
+                            
+                            # Detect architecture
+                            ARCH=$(uname -m)
+                            if [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
+                                TRIVY_ARCH="ARM64"
+                            else
+                                TRIVY_ARCH="64bit"
+                            fi
+                            
+                            wget -q https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-${TRIVY_ARCH}.tar.gz
+                            tar zxf trivy_${TRIVY_VERSION}_Linux-${TRIVY_ARCH}.tar.gz
+                            chmod +x trivy
+                        fi
+                    '''
+                    
+                    sh 'docker buildx create --use --name multiarch-builder || true'
+                    sh 'docker buildx inspect --bootstrap'
+                    
+                    services.each { service ->
+                        dir(service) {
+                            // Build Docker image
+                            sh "docker buildx build --platform linux/arm64,linux/amd64 -t tomasmanriquez480/${service}:latest --load ."
+                            
+                            // NEW: Trivy container scanning
+                            sh '''
+                                echo "Scanning ${service} with Trivy..."
+                                $WORKSPACE/.security-cache/trivy/trivy image \
+                                    --format json \
+                                    --output trivy-report.json \
+                                    --severity HIGH,CRITICAL \
+                                    --exit-code ${TRIVY_EXIT_CODE} \
+                                    --cache-dir $WORKSPACE/.security-cache/trivy/cache \
+                                    tomasmanriquez480/${service}:latest
+                                
+                                # Generate HTML report
+                                $WORKSPACE/.security-cache/trivy/trivy image \
+                                    --format template \
+                                    --template "@$WORKSPACE/security-configs/trivy-template.html" \
+                                    --output trivy-report.html \
+                                    --severity HIGH,CRITICAL \
+                                    --cache-dir $WORKSPACE/.security-cache/trivy/cache \
+                                    tomasmanriquez480/${service}:latest
+                            '''
+                            
+                            // Push if scan passes
+                            withCredentials([usernamePassword(credentialsId: "${env.DOCKER_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                                sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
+                                sh "docker buildx build --platform linux/arm64,linux/amd64 -t tomasmanriquez480/${service}:latest --push ."
+                            }
+                        }
+                    }
+                }
+            }
+            post {
+                always {
+                    // Archive Trivy reports
+                    archiveArtifacts artifacts: '**/trivy-report.*', allowEmptyArchive: true
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: '.',
+                        reportFiles: '**/trivy-report.html',
+                        reportName: 'Trivy Security Scan Report'
+                    ])
+                }
+            }
+        }
+        
+        stage('Deploy Application') {
+            steps {
+                script {
+                    sh "docker-compose down || true"
+                    sh "docker-compose pull"
+                    sh "docker-compose --verbose up -d"
+                    
+                    // Wait for application to be ready
+                    sh '''
+                        echo "Waiting for application to start..."
+                        sleep 30
+                        
+                        # Health check with timeout
+                        timeout 300 bash -c 'until curl -f http://localhost:8080/actuator/health 2>/dev/null; do sleep 5; done' || {
+                            echo "Application failed to start within timeout"
+                            docker-compose logs
+                            exit 1
+                        }
+                        echo "Application is ready for testing"
+                    '''
+                }
+            }
+        }
+        
+        // NEW: OWASP ZAP DAST Testing
+        stage('DAST with OWASP ZAP') {
+            steps {
+                script {
+                    // Install/Start ZAP
+                    sh '''
+                        if [ ! -d "$WORKSPACE/.security-cache/zap/ZAP_${ZAP_VERSION}" ]; then
+                            echo "Installing OWASP ZAP..."
+                            cd $WORKSPACE/.security-cache/zap
+                            wget -q https://github.com/zaproxy/zaproxy/releases/download/v${ZAP_VERSION}/ZAP_${ZAP_VERSION}_Linux.tar.gz
+                            tar -xzf ZAP_${ZAP_VERSION}_Linux.tar.gz
+                            chmod +x ZAP_${ZAP_VERSION}/zap.sh
+                        fi
+                    '''
+                    
+                    // Start ZAP daemon
+                    sh '''
+                        echo "Starting ZAP daemon..."
+                        $WORKSPACE/.security-cache/zap/ZAP_${ZAP_VERSION}/zap.sh -daemon -host 0.0.0.0 -port 8090 -config api.key=${ZAP_API_KEY} &
+                        ZAP_PID=$!
+                        echo $ZAP_PID > zap.pid
+                        
+                        # Wait for ZAP to start
+                        timeout 60 bash -c 'until curl -s http://localhost:8090 >/dev/null; do sleep 2; done'
+                    '''
+                    
+                    // Run ZAP baseline scan
+                    sh '''
+                        echo "Running ZAP baseline scan..."
+                        python3 $WORKSPACE/.security-cache/zap/ZAP_${ZAP_VERSION}/zap-baseline.py \
+                            -t http://localhost:8080 \
+                            -g gen.conf \
+                            -r zap-baseline-report.html \
+                            -J zap-baseline-report.json \
+                            -w zap-baseline-report.md \
+                            -z "-config api.key=${ZAP_API_KEY}"
+                    '''
+                    
+                    // Run ZAP full scan on critical endpoints
+                    sh '''
+                        echo "Running ZAP full scan on critical endpoints..."
+                        python3 $WORKSPACE/.security-cache/zap/ZAP_${ZAP_VERSION}/zap-full-scan.py \
+                            -t http://localhost:8080/api \
+                            -g gen.conf \
+                            -r zap-full-report.html \
+                            -J zap-full-report.json \
+                            -w zap-full-report.md \
+                            -z "-config api.key=${ZAP_API_KEY}" \
+                            -I  # Fail on HIGH risk alerts
+                    '''
+                }
+            }
+            post {
+                always {
+                    // Stop ZAP daemon
+                    sh '''
+                        if [ -f zap.pid ]; then
+                            kill $(cat zap.pid) || true
+                            rm -f zap.pid
+                        fi
+                    '''
+                    
+                    // Archive ZAP reports
+                    archiveArtifacts artifacts: 'zap-*-report.*', allowEmptyArchive: true
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: '.',
+                        reportFiles: 'zap-*-report.html',
+                        reportName: 'OWASP ZAP DAST Report'
+                    ])
+                }
+            }
+        }
+        
+        // NEW: Security Metrics to Grafana
+        stage('Security Metrics') {
+            steps {
+                script {
+                    sh '''
+                        echo "Collecting security metrics..."
+                        python3 $WORKSPACE/security-configs/collect-security-metrics.py \
+                            --workspace $WORKSPACE \
+                            --grafana-url ${GRAFANA_URL:-http://localhost:3000} \
+                            --grafana-token $GRAFANA_API_KEY \
+                            --build-number $BUILD_NUMBER \
+                            --job-name "$JOB_NAME"
+                    '''
+                }
+            }
+            post {
+                failure {
+                    echo 'Failed to send security metrics to Grafana'
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            // NEW: Security report aggregation
+            script {
+                sh '''
+                    echo "Generating security summary report..."
+                    python3 $WORKSPACE/security-configs/generate-security-summary.py \
+                        --workspace $WORKSPACE \
+                        --output security-summary-report.html
+                '''
+                
+                // Archive all security artifacts
+                archiveArtifacts artifacts: 'security-summary-report.html', allowEmptyArchive: true
+                publishHTML([
+                    allowMissing: false,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: '.',
+                    reportFiles: 'security-summary-report.html',
+                    reportName: 'Security Summary Report'
+                ])
+            }
+        }
+        failure {
+            echo 'Error in pipeline.'
+            // NEW: Security failure notifications
+            script {
+                sh '''
+                    echo "Security pipeline failed. Sending notifications..."
+                    python3 $WORKSPACE/security-configs/security-notifications.py \
+                        --status "FAILED" \
+                        --build-number $BUILD_NUMBER \
+                        --job-name "$JOB_NAME"
+                '''
+            }
+        }
+        success {
+            echo 'Pipeline completed successfully.'
+            // NEW: Security success metrics
+            script {
+                sh '''
+                    echo "Security pipeline succeeded. Recording metrics..."
+                    python3 $WORKSPACE/security-configs/security-notifications.py \
+                        --status "SUCCESS" \
+                        --build-number $BUILD_NUMBER \
+                        --job-name "$JOB_NAME"
+                '''
+            }
+        }
+    }
+}
