@@ -12,7 +12,6 @@ pipeline {
         stage('OWASP Dependency Check'){
             steps {
                 script {
-                    def dependencyCheckHome = tool 'OWASPDependency'
                     def services = [
                         'config-server',
                         'eureka-server',
@@ -26,13 +25,7 @@ pipeline {
                     ]
                     services.each { service ->
                         dir(service) {
-                            dependencyCheck additionalArguments '''
-                            -o './'
-                            -s './'
-                            -f 'ALL'
-                            --prettyPrint''', odcInstallation: 'OWASP Dependency-Check Vulnerabilities'
-                            //sh 'mvn org.owasp:dependency-check-maven:check -Dformat=ALL'
-                            dependencyCheckPublisher pattern: 'dependency-check-report.xml'
+                            dependencyCheck additionalArguments: '', nvdCredentialsId: 'token-sonar-devsecops-pep3', odcInstallation: 'owasp-dc-devsecops-pep3'
                         }
                     }
                 }
@@ -128,8 +121,6 @@ pipeline {
                                     -Dsonar.exclusions=**/controller/** ^
                                     -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json ^
                                     -Dsonar.dependencyCheck.jsonReportPath=target/dependency-check-report.json ^
-                                    -Dsonar.dependencyCheck.xmlReportPath=target/dependency-check-report.xml ^
-                                    -Dsonar.dependencyCheck.htmlReportPath=target/dependency-check-report.html
                                 """
                             }
                         }
