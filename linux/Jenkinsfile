@@ -13,7 +13,7 @@ pipeline {
             steps {
                 dependencyCheck additionalArguments: '--format HTML',
                                 //nvdCredentialsId: 'sonar-devsecops-pep2',
-                                nvdCredentialsId: 'token-sonar-devsecops-pep3'
+                                nvdCredentialsId: 'token-sonar-devsecops-pep3',
                                 odcInstallation: 'owasp-dc-devsecops-pep3'
             }
         }
