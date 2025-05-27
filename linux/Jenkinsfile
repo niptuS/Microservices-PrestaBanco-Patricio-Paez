@@ -29,7 +29,11 @@ pipeline {
         stage('Check') {
             steps {
                 checkout scm
-                // NEW: Setup security tools cache
+            }
+        }
+
+        stage('Setup security tools cache'){
+            steps {
                 script {
                     sh '''
                         mkdir -p $WORKSPACE/.security-cache/{trivy,owasp-dc,zap}
