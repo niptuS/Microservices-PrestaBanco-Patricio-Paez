@@ -11,7 +11,7 @@ pipeline {
         }
         stage('OWASP-Dependency-Check') {
             steps {
-                dependencyCheck additionalArguments: '--format HTML', odcInstallation: 'owasp-dc-devsecops-pep3'
+                dependencyCheck additionalArguments: '--format HTML', nvdCredentialsId: 'sonar-devsecops-pep2', odcInstallation: 'owasp-dc-devsecops-pep3'
             }
         }
         stage('Build') {
