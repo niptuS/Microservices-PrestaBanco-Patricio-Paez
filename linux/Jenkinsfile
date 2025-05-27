@@ -9,7 +9,7 @@ pipeline {
                 checkout scm
             }
         }
-        stage(){
+        stage('OWASP-Dependency-Check') {
             steps {
                 dependencyCheck additionalArguments: '', nvdCredentialsId: 'sonar-devsecops-pep2', odcInstallation: 'owasp-dc-devsecops-pep3'
             }
