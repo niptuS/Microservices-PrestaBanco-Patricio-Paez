@@ -26,13 +26,13 @@ pipeline {
                     ]
                     services.each { service ->
                         dir(service) {
-                            sh "${dependencyCheckHome}/bin/dependency-check.sh \
-                            --project BEAHD \
-                            --scan . \
-                            --out . \
-                            --format HTML \
-                            --nvdApiKey 9ss-sss-token-sonar-devsecops-pep3"
+                            dependencyCheck additionalArguments '''
+                            -o './'
+                            -s './'
+                            -f 'ALL'
+                            --prettyPrint''', odcInstallation: 'OWASP Dependency-Check Vulnerabilities'
                             //sh 'mvn org.owasp:dependency-check-maven:check -Dformat=ALL'
+                            dependencyCheckPublisher pattern: 'dependency-check-report.xml'
                         }
                     }
                 }
