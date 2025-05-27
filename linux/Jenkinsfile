@@ -25,7 +25,7 @@ pipeline {
                     ]
                     services.each { service ->
                         dir(service) {
-                            dependencyCheck additionalArguments: '--scan . --format JSON', odcInstallation: 'owasp-dc-devsecops-pep3'
+                            dependencyCheck additionalArguments: '--scan . --format JSON', nvdCredentialsId: 'token-nvd-api-key', odcInstallation: 'owasp-dc-devsecops-pep3'
                         }
                     }
                 }
