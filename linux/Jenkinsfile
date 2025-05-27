@@ -12,6 +12,7 @@ pipeline {
         stage('OWASP Dependency Check'){
             steps {
                 script {
+                    def dependencyCheckHome = tool 'OWASPDependency'
                     def services = [
                         'config-server',
                         'eureka-server',
@@ -25,7 +26,13 @@ pipeline {
                     ]
                     services.each { service ->
                         dir(service) {
-                            sh 'mvn org.owasp:dependency-check-maven:check -Dformat=ALL'
+                            sh "${dependencyCheckHome}/bin/dependency-check.sh \
+                            --project BEAHD \
+                            --scan . \
+                            --out . \
+                            --format HTML \
+                            --nvdApiKey 9ss-sss-token-sonar-devsecops-pep3"
+                            //sh 'mvn org.owasp:dependency-check-maven:check -Dformat=ALL'
                         }
                     }
                 }
