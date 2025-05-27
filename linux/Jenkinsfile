@@ -48,10 +48,10 @@ pipeline {
                     services.each { service ->
                         dir(service) {
                             if (service == 'frontend-ms') {
-                                sh "npm install"
-                                sh "npm run build"
+                                bat "npm install"
+                                bat "npm run build"
                             } else {
-                                sh "mvn clean install -DskipTests"
+                                bat "mvn clean install -DskipTests"
                             }
                         }
                     }
@@ -70,7 +70,7 @@ pipeline {
                     ]
                     services.each { service ->
                         dir(service) {
-                            sh "mvn test jacoco:report"
+                            bat "mvn test jacoco:report"
                         }
                     }
                 }
@@ -91,8 +91,8 @@ pipeline {
                     ]
                     services.each { service ->
                         dir(service) {
-                            sh "mvn pmd:pmd"
-                            sh 'python %WORKSPACE%\\PMD_TO_SQ.py'
+                            bat "mvn pmd:pmd"
+                            bat 'python %WORKSPACE%\\PMD_TO_SQ.py'
                         }
                     }
                 }
@@ -114,7 +114,7 @@ pipeline {
                         ]
                         services.each { service ->
                             dir(service) {
-                                sh """
+                                bat """
                                     mvn sonar:sonar ^
                                     -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ^
                                     -Dsonar.coverage.inclusions=**/service/*.java ^
@@ -145,10 +145,10 @@ pipeline {
                     ]
                     services.each { service ->
                         dir(service) {
-                            sh "docker build -t ${env.DOCKER_REGISTRY}/${service}:latest ."
+                            bat "docker build -t ${env.DOCKER_REGISTRY}/${service}:latest ."
                             withCredentials([usernamePassword(credentialsId: "${env.DOCKER_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                                sh "docker login -u %DOCKER_USER% -p %DOCKER_PASS%"
-                                sh "docker push ${env.DOCKER_REGISTRY}/${service}:latest"
+                                bat "docker login -u %DOCKER_USER% -p %DOCKER_PASS%"
+                                bat "docker push ${env.DOCKER_REGISTRY}/${service}:latest"
                             }
                         }
                     }
@@ -158,8 +158,8 @@ pipeline {
         stage('Run Docker Containers') {
             steps {
                 script {
-                    sh "docker-compose down || exit 0"
-                    sh "docker-compose up -d"
+                    bat "docker-compose down || exit 0"
+                    bat "docker-compose up -d"
                 }
             }
         }
