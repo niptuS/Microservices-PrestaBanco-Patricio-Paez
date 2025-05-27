@@ -121,6 +121,7 @@ pipeline {
                                     -Dsonar.exclusions=**/controller/** ^
                                     -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json ^
                                     -Dsonar.dependencyCheck.jsonReportPath=target/dependency-check-report.json ^
+                                    -Dsonar.dependencyCheck.htmlReportPath=target/dependency-check-report.html
                                 """
                             }
                         }
