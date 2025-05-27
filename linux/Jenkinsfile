@@ -22,7 +22,7 @@ pipeline {
     
     tools {
         maven "maven"
-        node "node22"
+        nodejs "node"
     }
     
     stages {
