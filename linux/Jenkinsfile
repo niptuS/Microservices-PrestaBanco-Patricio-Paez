@@ -25,7 +25,7 @@ pipeline {
                     ]
                     services.each { service ->
                         dir(service) {
-                            dependencyCheck additionalArguments: '--project devsecops-pep3 --scan . --out . --format JSON --nvdApiKey 9ss-sss-token-sonar-devsecops-pep3', odcInstallation: 'owasp-dc-devsecops-pep3'
+                            dependencyCheck additionalArguments: '--project devsecops-pep3 --scan . --out . --format JSON --nvdApiKey token-sonar-devsecops-pep3', nvdCredentialsId: 'token-sonar-devsecops-pep3', odcInstallation: 'owasp-dc-devsecops-pep3'
                         }
                     }
                 }
