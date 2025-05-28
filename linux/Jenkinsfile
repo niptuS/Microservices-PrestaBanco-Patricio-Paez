@@ -3,11 +3,6 @@ pipeline {
     tools {
         maven "maven"
     }
-    environment {
-        SONARQUBE_ENV = 'SonarQube' // Asegúrate de que este nombre coincida con el definido en Jenkins
-        DOCKER_REGISTRY = 'your-registry'
-        DOCKER_CREDENTIALS_ID = 'your-docker-credentials'
-    }
     stages {
         stage('Check') {
             steps {
