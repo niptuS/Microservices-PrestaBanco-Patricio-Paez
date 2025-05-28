@@ -115,13 +115,13 @@ pipeline {
                         services.each { service ->
                             dir(service) {
                                 bat """
-                                    mvn org.owasp:dependency-check-maven:aggregate sonar:sonar ^
+                                    mvn sonar:sonar ^
                                     -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ^
                                     -Dsonar.coverage.inclusions=**/service/*.java ^
                                     -Dsonar.exclusions=**/controller/** ^
                                     -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json ^
-                                    -Dsonar.dependencyCheck.jsonReportPath=target/dependency-check-report.json ^
-                                    -Dsonar.dependencyCheck.htmlReportPath=target/dependency-check-report.html
+                                    -Dsonar.dependencyCheck.jsonReportPath=${WORKSPACE}/dependency-check-report.json ^
+                                    -Dsonar.dependencyCheck.htmlReportPath=${WORKSPACE}/dependency-check-report.html
                                 """
                             }
                         }
