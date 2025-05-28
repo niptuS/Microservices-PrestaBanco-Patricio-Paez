@@ -3,6 +3,11 @@ pipeline {
     tools {
         maven "maven"
     }
+    environment {
+        SONARQUBE_ENV = 'SonarQube' // Asegúrate de que este nombre coincida con el definido en Jenkins
+        DOCKER_REGISTRY = 'your-registry'
+        DOCKER_CREDENTIALS_ID = 'your-docker-credentials'
+    }
     stages {
         stage('Check') {
             steps {
@@ -13,23 +18,24 @@ pipeline {
         stage('OWASP Dependency Check') {
             steps {
                 script {
+                    def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
                     def services = [
                         'config-server', 'eureka-server', 'gateway-server',
                         'ms-customer', 'ms-executive', 'ms-loan',
                         'ms-request', 'ms-simulation', 'frontend-ms'
                     ]
-
-                    def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
-
-                    services.each { service ->
-                        dir(service) {
-                            dependencyCheck(
-                                additionalArguments: '--scan . --format HTML --format JSON',
-                                nvdCredentialsId: 'token-nvd-api-key',
-                                odcInstallation: 'owasp-dc-devsecops-pep3'
-                            )
-                        }
+                    def owaspTasks = services.collectEntries { service ->
+                        ["${service}": {
+                            dir(service) {
+                                dependencyCheck(
+                                    additionalArguments: '--scan . --format HTML --format JSON',
+                                    nvdCredentialsId: 'token-nvd-api-key',
+                                    odcInstallation: 'owasp-dc-devsecops-pep3'
+                                )
+                            }
+                        }]
                     }
+                    parallel owaspTasks
                 }
             }
         }
@@ -37,24 +43,25 @@ pipeline {
         stage('Build') {
             steps {
                 script {
+                    def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
                     def services = [
                         'config-server', 'eureka-server', 'gateway-server',
                         'ms-customer', 'ms-executive', 'ms-loan',
                         'ms-request', 'ms-simulation', 'frontend-ms'
                     ]
-
-                    def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
-
-                    services.each { service ->
-                        dir(service) {
-                            if (service == 'frontend-ms') {
-                                runCommand("npm install")
-                                runCommand("npm run build")
-                            } else {
-                                runCommand("mvn clean install -DskipTests")
+                    def buildTasks = services.collectEntries { service ->
+                        ["${service}": {
+                            dir(service) {
+                                if (service == 'frontend-ms') {
+                                    runCommand("npm install")
+                                    runCommand("npm run build")
+                                } else {
+                                    runCommand("mvn clean install -DskipTests")
+                                }
                             }
-                        }
+                        }]
                     }
+                    parallel buildTasks
                 }
             }
         }
@@ -62,13 +69,11 @@ pipeline {
         stage('Unit Testing') {
             steps {
                 script {
-                    def services = [
-                        'ms-customer', 'ms-executive', 'ms-loan',
-                        'ms-request', 'ms-simulation'
-                    ]
-
                     def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
-
+                    def services = [
+                        'ms-customer', 'ms-executive',
+                        'ms-loan', 'ms-request', 'ms-simulation'
+                    ]
                     services.each { service ->
                         dir(service) {
                             runCommand("mvn test jacoco:report")
@@ -81,18 +86,16 @@ pipeline {
         stage('PMD Analysis') {
             steps {
                 script {
+                    def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
                     def services = [
                         'config-server', 'eureka-server', 'gateway-server',
                         'ms-customer', 'ms-executive', 'ms-loan',
                         'ms-request', 'ms-simulation'
                     ]
-
-                    def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
-
                     services.each { service ->
                         dir(service) {
                             runCommand("mvn pmd:pmd")
-                            runCommand("python ${env.WORKSPACE}/PMD_TO_SQ.py")
+                            runCommand("python ${env.WORKSPACE}\\PMD_TO_SQ.py")
                         }
                     }
                 }
@@ -103,25 +106,26 @@ pipeline {
             steps {
                 withSonarQubeEnv("${env.SONARQUBE_ENV}") {
                     script {
+                        def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
                         def services = [
                             'config-server', 'eureka-server', 'gateway-server',
                             'ms-customer', 'ms-executive', 'ms-loan',
                             'ms-request', 'ms-simulation'
                         ]
-
-                        def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
-
-                        services.each { service ->
-                            dir(service) {
-                                runCommand('''
-                                    mvn sonar:sonar \
-                                    -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
-                                    -Dsonar.coverage.inclusions=**/service/*.java \
-                                    -Dsonar.exclusions=**/controller/** \
-                                    -Dsonar.externalIssuesReportPaths=dependency-check-report.json
-                                '''.stripIndent())
-                            }
+                        def sonarTasks = services.collectEntries { service ->
+                            ["${service}": {
+                                dir(service) {
+                                    runCommand("""
+                                        mvn sonar:sonar ^
+                                        -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ^
+                                        -Dsonar.coverage.inclusions=**/service/*.java ^
+                                        -Dsonar.exclusions=**/controller/** ^
+                                        -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json
+                                    """.stripIndent())
+                                }
+                            }]
                         }
+                        parallel sonarTasks
                     }
                 }
             }
@@ -130,23 +134,17 @@ pipeline {
         stage('Docker Build and Push') {
             steps {
                 script {
+                    def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
                     def services = [
                         'config-server', 'eureka-server', 'gateway-server',
                         'ms-customer', 'ms-executive', 'ms-loan',
                         'ms-request', 'ms-simulation', 'frontend-ms'
                     ]
-
-                    def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
-
                     services.each { service ->
                         dir(service) {
                             runCommand("docker build -t ${env.DOCKER_REGISTRY}/${service}:latest .")
-                            withCredentials([usernamePassword(
-                                credentialsId: "${env.DOCKER_CREDENTIALS_ID}",
-                                usernameVariable: 'DOCKER_USER',
-                                passwordVariable: 'DOCKER_PASS')
-                            ]) {
-                                runCommand("docker login -u $DOCKER_USER -p $DOCKER_PASS")
+                            withCredentials([usernamePassword(credentialsId: "${env.DOCKER_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                                runCommand("docker login -u ${env.DOCKER_USER} -p ${env.DOCKER_PASS}")
                                 runCommand("docker push ${env.DOCKER_REGISTRY}/${service}:latest")
                             }
                         }
@@ -159,7 +157,7 @@ pipeline {
             steps {
                 script {
                     def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
-                    runCommand("docker-compose down || true")
+                    runCommand("docker-compose down || exit 0")
                     runCommand("docker-compose up -d")
                 }
             }
