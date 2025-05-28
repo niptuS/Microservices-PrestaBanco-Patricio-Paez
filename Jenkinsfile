@@ -36,6 +36,75 @@ pipeline {
                 }
             }
         }
+        stage('Unit Testing') {
+            steps {
+                script {
+                    def services = [
+                        'ms-customer',
+                        'ms-executive',
+                        'ms-loan',
+                        'ms-request',
+                        'ms-simulation'
+                    ]
+                    services.each { service ->
+                        dir(service) {
+                            bat "mvn test jacoco:report"
+                        }
+                    }
+                }
+            }
+        }
+        stage('PMD Analysis') {
+            steps {
+                script {
+                    def services = [
+                        'config-server',
+                        'eureka-server',
+                        'gateway-server',
+                        'ms-customer',
+                        'ms-executive',
+                        'ms-loan',
+                        'ms-request',
+                        'ms-simulation'
+                    ]
+                    services.each { service ->
+                        dir(service) {
+                            bat "mvn pmd:pmd"
+                            bat 'python %WORKSPACE%\\PMD_TO_SQ.py'
+                        }
+                    }
+                }
+            }
+        }
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv("${env.SONARQUBE_ENV}") {
+                    script {
+                        def services = [
+                            'config-server',
+                            'eureka-server',
+                            'gateway-server',
+                            'ms-customer',
+                            'ms-executive',
+                            'ms-loan',
+                            'ms-request',
+                            'ms-simulation'
+                        ]
+                        services.each { service ->
+                            dir(service) {
+                                bat """
+                                    mvn sonar:sonar ^
+                                    -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ^
+                                    -Dsonar.coverage.inclusions=**/service/*.java ^
+                                    -Dsonar.exclusions=**/controller/** ^
+                                    -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json
+                                """
+                            }
+                        }
+                    }
+                }
+            }
+        }
         stage('Docker Build and Push') {
             steps {
                 script {
@@ -70,40 +139,15 @@ pipeline {
                 }
             }
         }
-        stage('Deploy Falco Security') {
-            steps {
-                script {
-                    bat "docker stop falco || exit 0"
-                    bat "docker rm falco || exit 0"
+        // DAST or other stages...
 
-                    bat """
-                        docker run -d ^
-                            --name falco ^
-                            --privileged ^
-                            -v //var/run/docker.sock:/host/var/run/docker.sock ^
-                            -v //dev:/host/dev ^
-                            -v //proc:/host/proc:ro ^
-                            -v //boot:/host/boot:ro ^
-                            -v //lib/modules:/host/lib/modules:ro ^
-                            -v //usr:/host/usr:ro ^
-                            -v //etc:/host/etc:ro ^
-                            falcosecurity/falco
-                    """
-
-                    sleep(time: 10, unit: 'SECONDS')
-                    bat "docker logs falco --tail 50"
-                }
-            }
-        }
     }
     post {
-        failure {
-            echo 'Error in pipeline.'
-            bat "docker logs falco --tail 100 || exit 0"
+            failure {
+                echo 'Error in pipeline.'
+            }
+            success {
+                echo 'Pipeline completed successfully.'
+            }
         }
-        success {
-            echo 'Pipeline completed successfully.'
-            bat "docker exec falco falco --list || exit 0"
-        }
-    }
 }

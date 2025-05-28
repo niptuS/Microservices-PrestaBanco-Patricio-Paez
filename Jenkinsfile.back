@@ -140,14 +140,40 @@ pipeline {
             }
         }
         // DAST or other stages...
+        stage('Deploy Falco Security') {
+                    steps {
+                        script {
+                            bat "docker stop falco || exit 0"
+                            bat "docker rm falco || exit 0"
 
+                            bat """
+                                docker run -d ^
+                                    --name falco ^
+                                    --privileged ^
+                                    -v //var/run/docker.sock:/host/var/run/docker.sock ^
+                                    -v //dev:/host/dev ^
+                                    -v //proc:/host/proc:ro ^
+                                    -v //boot:/host/boot:ro ^
+                                    -v //lib/modules:/host/lib/modules:ro ^
+                                    -v //usr:/host/usr:ro ^
+                                    -v //etc:/host/etc:ro ^
+                                    falcosecurity/falco
+                            """
+
+                            sleep(time: 10, unit: 'SECONDS')
+                            bat "docker logs falco --tail 50"
+                        }
+                    }
+                }
     }
     post {
-        failure {
-            echo 'Error in pipeline.'
+            failure {
+                echo 'Error in pipeline.'
+                bat "docker logs falco --tail 100 || exit 0"
+            }
+            success {
+                echo 'Pipeline completed successfully.'
+                bat "docker exec falco falco --list || exit 0"
+            }
         }
-        success {
-            echo 'Pipeline completed.'
-        }
-    }
 }
