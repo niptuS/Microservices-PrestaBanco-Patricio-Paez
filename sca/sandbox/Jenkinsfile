@@ -24,6 +24,7 @@ pipeline {
               dependencyCheck(
                 additionalArguments: '''
                 --scan .
+                --format JSON
                 --format HTML
                 --prettyPrint''',
                 nvdCredentialsId: 'token-nvd-api-key',
@@ -126,7 +127,8 @@ pipeline {
                     -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ^
                     -Dsonar.coverage.inclusions=**/service/*.java ^
                     -Dsonar.exclusions=**/controller/** ^
-                    -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json,dependency-check-report.html ^
+                    -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json,dependency-check-report.json,dependency-check-report.html ^
+                    -Dsonar.dependencyCheck.jsonReportPath=dependency-check-report.json ^
                     -Dsonar.dependencyCheck.htmlReportPath=dependency-check-report.html ^
                     -Dsonar.projectKey=${service} ^
                     -Dsonar.projectName=${service}
