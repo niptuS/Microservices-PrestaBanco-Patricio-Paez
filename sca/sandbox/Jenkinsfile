@@ -122,7 +122,7 @@ pipeline {
                     -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json,${env.WORKSPACE}/dependency-check-report.html ^
                     -Dsonar.dependencyCheck.htmlReportPath=target/dependency-check-report.html 
                     -Dsonar.dependencyCheck.jsonReportPath=target/dependency-check-report.json
-                  """^.stripIndent())
+                  """.stripIndent())
                 }
               }]
             }
