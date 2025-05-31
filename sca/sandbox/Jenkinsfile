@@ -1,6 +1,7 @@
 pipeline {
   agent any
   tools {
+    nodejs "nodejs_18_17_1"
     maven "maven"
   }
   stages{
@@ -77,7 +78,7 @@ pipeline {
     stage('PMD Analysis'){
       steps {
         script {
-          def runComand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
+          def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
           def services = [
             'config-server', 'eureka-server', 'gateway-server',
             'ms-customer', 'ms-executive', 'ms-loan',
