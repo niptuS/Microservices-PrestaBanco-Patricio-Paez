@@ -1,7 +1,7 @@
 pipeline {
   agent any
   tools {
-    nodejs "nodejs_18_17_1"
+    nodejs "nodejs"
     maven "maven"
   }
   stages{
