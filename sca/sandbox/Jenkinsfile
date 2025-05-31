@@ -1,0 +1,142 @@
+pipeline {
+  agent any
+  tools {
+    maven "maven"
+  }
+  stages{
+    stage('Checkout SCM'){
+      steps {
+        checkout scm
+      }
+    }
+    stage('OWASP Dependency Check'){
+      steps {
+        script {
+          def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd)}
+          def services = [
+            'config-server', 'eureka-server', 'gateway-server',
+            'ms-customer', 'ms-executive', 'ms-loan',
+            'ms-request', 'ms-simulation', 'frontend-ms'
+          ]
+          services.each { service ->
+            dir(service) {
+              dependencyCheck(
+                additionalArguments: '--scan .',
+                nvdCredentials: 'token-nvd-api-key',
+                odcInstallation: 'owasp-dc-devsecops-pep3'
+              )
+            }
+          }
+        }
+      }
+    }
+    stage('Build'){
+      steps {
+        script {
+          def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd)}
+          def services = [
+            'config-server', 'eureka-server', 'gateway-server',
+            'ms-customer', 'ms-executive', 'ms-loan',
+            'ms-request', 'ms-simulation', 'frontend-ms'
+          ]
+          def buildTasks = services.collectEntries { service ->
+            ["${service}": {
+              dir(service) {
+                if (service == 'frontend-ms') {
+                  runCommand("npm install")
+                  runCommand("npm run build")
+                } else {
+                  runCommand("mvn clean install -DskipTests")
+                }
+              }
+            }]
+          }
+          parallel buildTasks
+        }
+      }
+    }
+    stage('Unit Testing'){
+      steps {
+        script {
+          def runCommand = {cmd -> isUnix() ? sh(cmd) : bat(cmd)}
+          def services = [
+            'ms-customer', 'ms-executive', 'ms-loan',
+            'ms-request', 'ms-simulation'
+          ]
+          def testTasks = services.collectEntries { service ->
+            ["${service}": {
+              dir(service) {
+                runCommand("mvn test jacoco:report")
+              }
+            }]
+          }
+          parallel testTasks
+        }
+      }
+    }
+    stage('PMD Analysis'){
+      steps {
+        script {
+          def runComand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
+          def services = [
+            'config-server', 'eureka-server', 'gateway-server',
+            'ms-customer', 'ms-executive', 'ms-loan',
+            'ms-request', 'ms-simulation'
+          ]
+
+          def pmdTasks = services.collectEntries { service ->
+            ["${service}": {
+              dir(service) {
+                runCommand("mvn pmd:pmd")
+              }
+            }]
+          }
+          parallel pmdTasks
+
+          services.each { service -> 
+            dir(service){
+              runCommand("python ${env.WORKSPACE}\\PMD_TO_SQ.py")
+            }
+          }
+        }
+      }
+    }
+    stage('SonarQube Analysis'){
+      steps {
+        withSonarQubeEnv("${env.SONARQUBE_ENV}"){
+          script {
+            def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
+            def services = [
+              'config-server', 'eureka-server', 'gateway-server',
+              'ms-customer', 'ms-executive', 'ms-loan',
+              'ms-request', 'ms-simulation'
+            ]
+            def sonarTasks = services.collectEntries { service ->
+              ["${service}": {
+                dir(service) {
+                  runCommand("""
+                    mvn sonar:sonar ^
+                    -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ^
+                    -Dsonar.coverage.inclusions=**/service/*.java ^
+                    -Dsonar.exclusions=**/controller/** ^
+                    -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json,${env.WORKSPACE}/dependency-check-report.html ^
+                    -Dsonar.dependencyCheck.htmlReportPath=target/dependency-check-report.html 
+                    -Dsonar.dependencyCheck.jsonReportPath=target/dependency-check-report.json
+                  """^.stripIndent())
+                }
+              }]
+            }
+          }
+        }
+      }
+    }
+  }
+  post {
+    failure {
+      echo 'Error in pipeline.'
+    }
+    success {
+      echo 'Pipeline completed.'
+    }
+  }
+}
