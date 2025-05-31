@@ -22,7 +22,7 @@ pipeline {
             dir(service) {
               dependencyCheck(
                 additionalArguments: '--scan .',
-                nvdCredentials: 'token-nvd-api-key',
+                nvdCredentialsId: 'token-nvd-api-key',
                 odcInstallation: 'owasp-dc-devsecops-pep3'
               )
             }
