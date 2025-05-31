@@ -25,7 +25,8 @@ pipeline {
                 additionalArguments: '''
                 --scan .
                 --format JSON
-                --prettyPrint''',
+                --disableYarnAudit
+                ''',
                 nvdCredentialsId: 'token-nvd-api-key',
                 odcInstallation: 'owasp-dc-devsecops-pep3'
               )
@@ -123,6 +124,7 @@ pipeline {
                 dir(service) {
                   runCommand("""
                     mvn sonar:sonar ^
+                    -X ^
                     -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ^
                     -Dsonar.coverage.inclusions=**/service/*.java ^
                     -Dsonar.exclusions=**/controller/** ^
