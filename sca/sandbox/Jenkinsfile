@@ -25,7 +25,6 @@ pipeline {
                 additionalArguments: '''
                 --scan .
                 --format JSON
-                --format HTML
                 --prettyPrint''',
                 nvdCredentialsId: 'token-nvd-api-key',
                 odcInstallation: 'owasp-dc-devsecops-pep3'
@@ -127,9 +126,8 @@ pipeline {
                     -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ^
                     -Dsonar.coverage.inclusions=**/service/*.java ^
                     -Dsonar.exclusions=**/controller/** ^
-                    -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json,dependency-check-report.json,dependency-check-report.html ^
+                    -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json,dependency-check-report.json ^
                     -Dsonar.dependencyCheck.jsonReportPath=dependency-check-report.json ^
-                    -Dsonar.dependencyCheck.htmlReportPath=dependency-check-report.html ^
                     -Dsonar.projectKey=${service} ^
                     -Dsonar.projectName=${service}
                   """.stripIndent())
