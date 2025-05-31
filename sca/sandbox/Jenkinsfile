@@ -125,14 +125,15 @@ pipeline {
                     -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ^
                     -Dsonar.coverage.inclusions=**/service/*.java ^
                     -Dsonar.exclusions=**/controller/** ^
-                    -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json,${env.WORKSPACE}/dependency-check-report.xml ^
-                    -Dsonar.dependencyCheck.xmlReportPath=dependency-check-report.xml
+                    -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json,dependency-check-report.json ^
+                    -Dsonar.dependencyCheck.jsonReportPath=dependency-check-report.json ^
                     -Dsonar.projectKey=${service} ^
                     -Dsonar.projectName=${service}
                   """.stripIndent())
                 }
               }]
             }
+            parallel sonarTasks
           }
         }
       }
