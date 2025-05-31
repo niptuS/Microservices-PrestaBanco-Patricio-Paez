@@ -24,14 +24,13 @@ pipeline {
               dependencyCheck(
                 additionalArguments: '''
                 --scan .
-                --out target
                 --format XML
                 --prettyPrint''',
                 nvdCredentialsId: 'token-nvd-api-key',
                 odcInstallation: 'owasp-dc-devsecops-pep3'
               )
               dependencyCheckPublisher(
-                pattern: 'target/dependency-check-report.xml'
+                pattern: 'dependency-check-report.xml'
               )
             }
           }
@@ -127,7 +126,7 @@ pipeline {
                     -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ^
                     -Dsonar.coverage.inclusions=**/service/*.java ^
                     -Dsonar.exclusions=**/controller/** ^
-                    -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json,target/dependency-check-report.xml ^
+                    -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json,dependency-check-report.xml ^
                     -Dsonar.dependencyCheck.xmlReportPath=dependency-check-report.xml ^
                     -Dsonar.projectKey=${service} ^
                     -Dsonar.projectName=${service}
