@@ -125,7 +125,6 @@ pipeline {
                 dir(service) {
                   runCommand("""
                     mvn sonar:sonar ^
-                    -X ^
                     -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ^
                     -Dsonar.coverage.inclusions=**/service/*.java ^
                     -Dsonar.exclusions=**/controller/** ^
@@ -144,12 +143,49 @@ pipeline {
         }
       }
     }
-    post {
-            failure {
-                echo 'Error in pipeline.'
+    stage('Docker Build and Push') {
+      steps {
+        script {
+          def services = [
+            'config-server', 'eureka-server', 'gateway-server',
+            'ms-customer', 'ms-executive', 'ms-loan',
+            'ms-request', 'ms-simulation', 'frontend-ms'
+          ]
+          def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
+          services.each { service ->
+            dir(service) {
+              runCommand("""
+                docker build -t ${env.DOCKER_REGISTRY}/${service}:latest .
+              """.stripIndent())
+              withCredentials([usernamePassword(credentialsId: "${env.DOCKER_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                runCommand("""
+                  docker login -u %DOCKER_USER% -p %DOCKER_PASS%
+                  docker push ${env.DOCKER_REGISTRY}/${service}:latest
+                """.stripIndent())
+              }
             }
-            success {
-                echo 'Pipeline completed successfully.'
-            }
+          }
         }
+      }
+    }
+    stage('Run Docker Containers') {
+      steps {
+        script {
+          def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
+          runCommand("""
+            docker-compose || exit 0
+            docker-compose up -d
+          """.stripIndent())
+        }
+      }
+    }
+    post {
+      failure {
+        echo 'Error in pipeline.'
+      }
+      success {
+        echo 'Pipeline completed successfully.'
+      }
+    }
+  }
 }
