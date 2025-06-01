@@ -179,13 +179,13 @@ pipeline {
         }
       }
     }
-    post {
-      failure {
-        echo 'Error in pipeline.'
-      }
-      success {
-        echo 'Pipeline completed successfully.'
-      }
+  }
+  post {
+    failure {
+      echo 'Error in pipeline.'
+    }
+    success {
+      echo 'Pipeline completed successfully.'
     }
   }
 }
