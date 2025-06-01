@@ -31,7 +31,7 @@ pipeline {
                 odcInstallation: 'owasp-dc-devsecops-pep3'
               )
               dependencyCheckPublisher(
-                pattern: 'dependency-check-report.xml'
+                pattern: '**/dependency-check-report.xml'
               )
             }
           }
