@@ -116,6 +116,7 @@ pipeline {
         withSonarQubeEnv("${env.SONARQUBE_ENV}"){
           script {
             def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
+            def lineContinuation = isUnix() ? '\\' : '^' // Detecta el carácter de continuación de línea
             def services = [
               'config-server', 'eureka-server', 'gateway-server',
               'ms-customer', 'ms-executive', 'ms-loan',
@@ -125,15 +126,15 @@ pipeline {
               ["${service}": {
                 dir(service) {
                   runCommand("""
-                    mvn sonar:sonar ^
-                    -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ^
-                    -Dsonar.coverage.inclusions=**/service/*.java ^
-                    -Dsonar.exclusions=**/controller/** ^
-                    -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json
-                    -Dsonar.dependencyCheck.jsonReportPath=dependency-check-report.json ^
-                    -Dsonar.dependencyCheck.htmlReportPath=dependency-check-report.html ^
-                    -Dsonar.dependencyCheck.xmlReportPath=dependency-check-report.xml ^
-                    -Dsonar.projectKey=${service} ^
+                    mvn sonar:sonar ${lineContinuation}
+                    -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ${lineContinuation}
+                    -Dsonar.coverage.inclusions=**/service/*.java ${lineContinuation}
+                    -Dsonar.exclusions=**/controller/** ${lineContinuation}
+                    -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json ${lineContinuation}
+                    -Dsonar.dependencyCheck.jsonReportPath=dependency-check-report.json ${lineContinuation}
+                    -Dsonar.dependencyCheck.htmlReportPath=dependency-check-report.html ${lineContinuation}
+                    -Dsonar.dependencyCheck.xmlReportPath=dependency-check-report.xml ${lineContinuation}
+                    -Dsonar.projectKey=${service} ${lineContinuation}
                     -Dsonar.projectName=${service}
                   """.stripIndent())
                 }
