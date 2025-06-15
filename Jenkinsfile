@@ -160,8 +160,11 @@ pipeline {
                 docker build -t ${env.DOCKER_REGISTRY}/${service}:latest .
               """.stripIndent())
               withCredentials([usernamePassword(credentialsId: "${env.DOCKER_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                def dockerLoginCommand = isUnix() ?
+                  "docker login -u $DOCKER_USER -p $DOCKER_PASS" : // Unix/Linux
+                  "docker login -u %DOCKER_USER% -p %DOCKER_PASS%" // Windows
                 runCommand("""
-                  docker login -u %DOCKER_USER% -p %DOCKER_PASS%
+                  ${dockerLoginCommand}
                   docker push ${env.DOCKER_REGISTRY}/${service}:latest
                 """.stripIndent())
               }
