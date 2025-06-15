@@ -103,8 +103,9 @@ pipeline {
           parallel pmdTasks
 
           services.each { service -> 
-            dir(service){
-              runCommand("python ${env.WORKSPACE}\\PMD_TO_SQ.py")
+            dir(service) {
+              def pythonCmd = isUnix() ? "python3" : "python"
+              runCommand("${pythonCmd} ${env.WORKSPACE}${isUnix() ? '/' : '\\'}PMD_TO_SQ.py")
             }
           }
         }
