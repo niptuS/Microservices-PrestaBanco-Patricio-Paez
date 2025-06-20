@@ -35,6 +35,34 @@ pipeline {
         }
       }
     }
+    stage('PMD Analysis'){
+      steps {
+        script {
+          def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
+          def services = [
+            'config-server', 'eureka-server', 'gateway-server',
+            'ms-customer', 'ms-executive', 'ms-loan',
+            'ms-request', 'ms-simulation'
+          ]
+
+          def pmdTasks = services.collectEntries { service ->
+            ["${service}": {
+              dir(service) {
+                runCommand("mvn pmd:pmd")
+              }
+            }]
+          }
+          parallel pmdTasks
+
+          services.each { service ->
+            dir(service) {
+              def pythonCmd = isUnix() ? "python3" : "python"
+              runCommand("${pythonCmd} ${env.WORKSPACE}${isUnix() ? '/' : '\\'}PMD_TO_SQ.py")
+            }
+          }
+        }
+      }
+    }
     stage('SonarQube Analysis'){
       steps {
         withSonarQubeEnv("${env.SONARQUBE_ENV}"){
