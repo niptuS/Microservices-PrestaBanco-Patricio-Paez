@@ -108,7 +108,6 @@ pipeline {
         }
       }
     }
-  }
   stage('Deploy Falco Security') {
     steps {
       script {
@@ -131,6 +130,7 @@ pipeline {
 
           sleep(time: 10, unit: 'SECONDS')
           bat "docker logs falco --tail 50"
+        }
       }
     }
   }
