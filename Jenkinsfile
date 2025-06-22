@@ -144,6 +144,45 @@ pipeline {
         }
       }
     }
+    stage('Docker Build and Push') {
+      steps {
+        script {
+          def services = [
+            'config-server', 'eureka-server', 'gateway-server',
+            'ms-customer', 'ms-executive', 'ms-loan',
+            'ms-request', 'ms-simulation', 'frontend-ms'
+          ]
+          def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
+          services.each { service ->
+            dir(service) {
+              runCommand("""
+                docker build -t ${env.DOCKER_REGISTRY}/${service}:latest .
+              """.stripIndent())
+              withCredentials([usernamePassword(credentialsId: "${env.DOCKER_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                def dockerLoginCommand = isUnix() ?
+                  "docker login -u $DOCKER_USER -p $DOCKER_PASS" : // Unix/Linux
+                  "docker login -u %DOCKER_USER% -p %DOCKER_PASS%" // Windows
+                runCommand("""
+                  ${dockerLoginCommand}
+                  docker push ${env.DOCKER_REGISTRY}/${service}:latest
+                """.stripIndent())
+              }
+            }
+          }
+        }
+      }
+    }
+    stage('Run Docker Containers') {
+      steps {
+        script {
+          def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
+          runCommand("""
+            docker-compose || exit 0
+            docker-compose up -d
+          """.stripIndent())
+        }
+      }
+    }
   }
   post {
     failure {
