@@ -174,7 +174,7 @@ pipeline {
     stage('Trivy Scan'){
       steps {
         script {
-          def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
+          def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(".\${cmd}") }
           def services = [
             'config-server', 'eureka-server', 'gateway-server',
             'ms-customer', 'ms-executive', 'ms-loan',
