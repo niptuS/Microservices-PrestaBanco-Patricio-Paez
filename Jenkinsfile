@@ -125,7 +125,6 @@ pipeline {
                 dir(service) {
                   runCommand("""
                     mvn sonar:sonar ^
-                    -X ^
                     -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ^
                     -Dsonar.coverage.inclusions=**/service/*.java ^
                     -Dsonar.exclusions=**/controller/** ^
@@ -133,7 +132,8 @@ pipeline {
                     -Dsonar.dependencyCheck.jsonReportPath=dependency-check-report.json ^
                     -Dsonar.dependencyCheck.htmlReportPath=dependency-check-report.html ^
                     -Dsonar.dependencyCheck.xmlReportPath=dependency-check-report.xml ^
-                    -Dsonar.projectName=${service}
+                    -Dsonar.projectName=${service} ^
+                    -Dsonar.projectKey=${service}
                   """.stripIndent())
                 }
               }]
