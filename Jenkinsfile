@@ -171,6 +171,26 @@ pipeline {
         }
       }
     }
+    stage('Trivy Scan'){
+      steps {
+        script {
+          def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
+          def services = [
+            'config-server', 'eureka-server', 'gateway-server',
+            'ms-customer', 'ms-executive', 'ms-loan',
+            'ms-request', 'ms-simulation', 'frontend-ms'
+          ]
+          services.each { service ->
+            dir(service) {
+              runCommand("""
+                trivy image --exit-code 1 --severity HIGH,CRITICAL ${env.DOCKER_REGISTRY}/${service}:latest || exit 0
+              """.stripIndent())
+            }
+          }
+        }
+      }
+
+    }
     stage('Run Docker Containers') {
       steps {
         script {
