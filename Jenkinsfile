@@ -133,7 +133,6 @@ pipeline {
                     -Dsonar.dependencyCheck.jsonReportPath=dependency-check-report.json ^
                     -Dsonar.dependencyCheck.htmlReportPath=dependency-check-report.html ^
                     -Dsonar.dependencyCheck.xmlReportPath=dependency-check-report.xml ^
-                    -Dsonar.projectKey=${service} ^
                     -Dsonar.projectName=${service}
                   """.stripIndent())
                 }
