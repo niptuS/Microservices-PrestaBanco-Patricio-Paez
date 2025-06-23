@@ -265,8 +265,9 @@ pipeline {
           echo Installing OWASP ZAP...
           mkdir "%WORKSPACE%\\.security-cache\\zap"
           cd "%WORKSPACE%\\.security-cache\\zap"
-          powershell -Command "Invoke-WebRequest -Uri https://github.com/zaproxy/zaproxy/releases/download/v${ZAP_VERSION}/ZAP_${ZAP_VERSION}_Windows.zip -OutFile ZAP_${ZAP_VERSION}_Windows.zip"
-          powershell -Command "Expand-Archive -Path ZAP_${ZAP_VERSION}_Windows.zip -DestinationPath ."
+          powershell -Command "Invoke-WebRequest -Uri https://github.com/zaproxy/zaproxy/releases/download/v${ZAP_VERSION}/ZAP_${ZAP_VERSION}_windows.exe -OutFile ZAP_${ZAP_VERSION}_windows.exe"
+          echo Running ZAP installer...
+          start /wait ZAP_${ZAP_VERSION}_windows.exe /S
           )
         '''
         bat '''
