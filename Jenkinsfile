@@ -32,6 +32,7 @@ pipeline {
                 --scan .
                 --format XML
                 --format HTML
+                --format JSON
                 --disableYarnAudit
                 --prettyPrint
                 ''',
@@ -138,6 +139,8 @@ pipeline {
                     -Dsonar.exclusions=**/controller/** ^
                     -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json ^                    -Dsonar.dependencyCheck.htmlReportPath=dependency-check-report.html ^
                     -Dsonar.dependencyCheck.xmlReportPath=dependency-check-report.xml ^
+                    -Dsonar.dependencyCheck.jsonReportPath=dependency-check-report.json ^
+                    -Dsonar.dependencyCheck.htmlReportPaths=dependency-check-report.html ^
                     -Dsonar.projectName=${service} ^
                     -Dsonar.projectKey=${service}
                   """.stripIndent())
