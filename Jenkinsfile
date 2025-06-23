@@ -131,6 +131,7 @@ pipeline {
                 dir(service) {
                   runCommand("""
                     mvn sonar:sonar ^
+                    -X ^
                     -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ^
                     -Dsonar.coverage.inclusions=**/service/*.java ^
                     -Dsonar.exclusions=**/controller/** ^
