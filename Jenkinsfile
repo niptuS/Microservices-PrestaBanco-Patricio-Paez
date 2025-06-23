@@ -272,7 +272,7 @@ pipeline {
           del ZAP_${ZAP_VERSION}_Crossplatform.zip
           cd ZAP_${ZAP_VERSION}/ZAP_${ZAP_VERSION}
           echo Starting ZAP daemon...
-          .\zap.bat -daemon -host 0.0.0.0 -port 8090 -config api.key=${ZAP_API_KEY}
+          .\\zap.bat -daemon -host 0.0.0.0 -port 8090 -config api.key=${ZAP_API_KEY}
           )
         '''
         bat '''
