@@ -263,19 +263,17 @@ pipeline {
       } else {
         // Windows commands
         bat '''
+          echo Downloading OWASP ZAP...
           if not exist "%WORKSPACE%\\.security-cache\\zap\\ZAP_${ZAP_VERSION}" (
-          echo Installing OWASP ZAP...
           mkdir "%WORKSPACE%\\.security-cache\\zap"
           cd "%WORKSPACE%\\.security-cache\\zap"
-          powershell -Command "Invoke-WebRequest -Uri https://github.com/zaproxy/zaproxy/releases/download/v${ZAP_VERSION}/ZAP_${ZAP_VERSION}_windows.exe -OutFile ZAP_${ZAP_VERSION}_windows.exe"
-          echo Running ZAP installer...
-          start /wait ZAP_${ZAP_VERSION}_windows.exe /S
-          )
-        '''
-        bat '''
+          powershell -Command "Invoke-WebRequest https://github.com/zaproxy/zaproxy/releases/download/v${ZAP_VERSION}/ZAP_${ZAP_VERSION}_Crossplatform.zip -OutFile ZAP_${ZAP_VERSION}_Crossplatform.zip"
+          powershell -Command "Expand-Archive -Force ZAP_${ZAP_VERSION}_Crossplatform.zip ZAP_${ZAP_VERSION}"
+          del ZAP_${ZAP_VERSION}_Crossplatform.zip
+          cd ZAP_${ZAP_VERSION}/ZAP_${ZAP_VERSION}
           echo Starting ZAP daemon...
-          start /B "%WORKSPACE%\\.security-cache\\zap\\ZAP_${ZAP_VERSION}\\zap.bat" -daemon -host 0.0.0.0 -port 8090 -config api.key=${ZAP_API_KEY}
-          timeout /T 60
+          .\zap.bat -daemon -host 0.0.0.0 -port 8090 -config api.key=${ZAP_API_KEY}
+          )
         '''
         bat '''
           echo Running ZAP baseline scan...
