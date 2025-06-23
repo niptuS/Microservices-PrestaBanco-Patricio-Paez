@@ -73,6 +73,10 @@
 			<artifactId>spring-cloud-starter-openfeign</artifactId>
 			<version>4.1.1</version>
 		</dependency>
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-registry-prometheus</artifactId>
+		</dependency>
 	</dependencies>
 
 	<build>

@@ -92,14 +92,20 @@ pipeline {
             -v //usr:/host/usr:ro ^
             -v //etc:/host/etc:ro ^
             falcosecurity/falco
-            """
-
-            sleep(time: 10, unit: 'SECONDS')
-            bat "docker logs falco --tail 50"
-          }
+          """
+          sleep(time: 10, unit: 'SECONDS')
+          bat "docker logs falco --tail 50"
         }
       }
-  }
+    }
+
+    stage('Check Monitoring') {
+      steps {
+        script {
+          bat 'curl http://localhost:3000/api/health'
+        }
+      }
+    }
 
   post {
     failure {
