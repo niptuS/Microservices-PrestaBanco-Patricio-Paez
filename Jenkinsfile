@@ -43,26 +43,28 @@ pipeline {
             'ms-customer', 'ms-executive', 'ms-loan',
             'ms-request', 'ms-simulation', 'frontend-ms'
           ]
-          def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
+
           services.each { service ->
             dir(service) {
-              runCommand("""
-                docker build -t ${env.DOCKER_REGISTRY}/${service}:latest .
-              """.stripIndent())
-              withCredentials([usernamePassword(credentialsId: "${env.DOCKER_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                def dockerLoginCommand = isUnix() ?
-                  "docker login -u $DOCKER_USER -p $DOCKER_PASS" : // Unix/Linux
-                  "docker login -u %DOCKER_USER% -p %DOCKER_PASS%" // Windows
-                runCommand("""
-                  ${dockerLoginCommand}
-                  docker push ${env.DOCKER_REGISTRY}/${service}:latest
-                """.stripIndent())
+              // Usa el plugin Docker Pipeline para construir
+              docker.build("${env.DOCKER_REGISTRY}/${service}:latest", ".")
+
+              // Autenticación y push con credenciales
+              withCredentials([usernamePassword(
+                credentialsId: "${env.DOCKER_CREDENTIALS_ID}",
+                usernameVariable: 'DOCKER_USER',
+                passwordVariable: 'DOCKER_PASS'
+              ]) {
+                docker.withRegistry("https://${env.DOCKER_REGISTRY}", "${env.DOCKER_CREDENTIALS_ID}") {
+                  docker.image("${env.DOCKER_REGISTRY}/${service}:latest").push()
+                }
               }
             }
           }
         }
       }
     }
+
     stage('Run Docker Containers') {
       steps {
         script {
