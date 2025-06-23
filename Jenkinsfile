@@ -30,7 +30,6 @@ pipeline {
               dependencyCheck(
                 additionalArguments: '''
                 --scan .
-                --format JSON
                 --format XML
                 --format HTML
                 --disableYarnAudit
@@ -137,9 +136,7 @@ pipeline {
                     -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ^
                     -Dsonar.coverage.inclusions=**/service/*.java ^
                     -Dsonar.exclusions=**/controller/** ^
-                    -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json
-                    -Dsonar.dependencyCheck.jsonReportPath=dependency-check-report.json ^
-                    -Dsonar.dependencyCheck.htmlReportPath=dependency-check-report.html ^
+                    -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json ^                    -Dsonar.dependencyCheck.htmlReportPath=dependency-check-report.html ^
                     -Dsonar.dependencyCheck.xmlReportPath=dependency-check-report.xml ^
                     -Dsonar.projectName=${service} ^
                     -Dsonar.projectKey=${service}
