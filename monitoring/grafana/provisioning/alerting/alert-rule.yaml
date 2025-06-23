@@ -1,0 +1,15 @@
+apiVersion: 1
+
+groups:
+  - name: Seguridad
+    interval: 1m
+    rules:
+      - alert: ErroresAutenticacionSospechosos
+        expr: count(rate({job="varlogs"} |= "401" or |= "403" [$__rate_interval])) > 4
+        for: 1m
+        labels:
+          severity: warning
+          tipo: seguridad
+        annotations:
+          summary: "Más de 4 errores 401/403 detectados"
+          description: "Posible intento de acceso no autorizado o error recurrente de autenticación."

@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'ms-customer'
+    static_configs:
+      - targets: ['ms-customer:8081']
+
+  - job_name: 'ms-executive'
+    static_configs:
+      - targets: ['ms-executive:8082']
+
+  - job_name: 'ms-loan'
+    static_configs:
+      - targets: ['ms-loan:8083']
+
+  - job_name: 'ms-request'
+    static_configs:
+      - targets: ['ms-request:8084']
+
+  - job_name: 'ms-simulation'
+    static_configs:
+      - targets: ['ms-simulation:8085']
