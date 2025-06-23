@@ -32,6 +32,7 @@ pipeline {
                 --scan .
                 --format JSON
                 --format XML
+                --format HTML
                 --disableYarnAudit
                 --prettyPrint
                 ''',
