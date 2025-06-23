@@ -10,4 +10,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class ExecutiveLoginResponse {
     private Long id;
+    private String token;
 }

@@ -1,5 +1,6 @@
 package com.prestabanco.executive.controller;
 
+import com.prestabanco.executive.config.JwtUtil;
 import com.prestabanco.executive.entity.Executive;
 import com.prestabanco.executive.models.ExecutiveLoginRequest;
 import com.prestabanco.executive.models.ExecutiveLoginResponse;
@@ -16,9 +17,11 @@ import org.springframework.web.bind.annotation.*;
 public class ExecutiveController {
 
     private final ExecutiveService executiveService;
+    private final JwtUtil jwtUtil;
 
-    public ExecutiveController(ExecutiveService executiveService) {
+    public ExecutiveController(ExecutiveService executiveService, JwtUtil jwtUtil) {
         this.executiveService = executiveService;
+        this.jwtUtil = jwtUtil;
     }
 
     @GetMapping("/{id}")
@@ -45,6 +48,8 @@ public class ExecutiveController {
         if (response == null || response.getId() == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
         }
+        String token = jwtUtil.generateToken(request.getEmail());
+        response.setToken(token);
 
         return ResponseEntity.ok(response);
     }

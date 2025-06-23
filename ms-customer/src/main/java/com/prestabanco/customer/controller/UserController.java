@@ -1,6 +1,7 @@
 package com.prestabanco.customer.controller;
 
 import com.prestabanco.customer.entity.User;
+import com.prestabanco.customer.config.JwtUtil;
 import com.prestabanco.customer.models.*;
 import com.prestabanco.customer.service.UserService;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
@@ -16,9 +17,11 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final JwtUtil jwtUtil;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, JwtUtil jwtUtil) {
         this.userService = userService;
+        this.jwtUtil = jwtUtil;
     }
 
     @GetMapping("/{id}")
@@ -42,6 +45,9 @@ public class UserController {
         if (response == null || response.getUserId() == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
         }
+
+        String token = jwtUtil.generateToken(request.getEmail());
+        response.setToken(token);
 
         return ResponseEntity.ok(response);
     }

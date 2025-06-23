@@ -51,14 +51,14 @@ public class UserService {
         User user = userRepository.findFirstByEmail(request.getEmail());
 
         if (user == null) {
-            return new UserLoginResponse(null);
+            return new UserLoginResponse(null, null);
         }
 
         if (passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            return new UserLoginResponse(user.getId());
+            return new UserLoginResponse(user.getId(), null);
         }
 
-        return new UserLoginResponse(null);
+        return new UserLoginResponse(null, null);
     }
 
     public List<User> getAllUsers() {

@@ -22,12 +22,12 @@ public class ExecutiveService {
     public ExecutiveLoginResponse loginExecutive(ExecutiveLoginRequest request) {
         Executive executive = executiveRepository.findFirstByEmail(request.getEmail());
         if (executive.getPassword() == null) {
-            return new ExecutiveLoginResponse(null);
+            return new ExecutiveLoginResponse(null, null);
         }
         if (executive.getEmail() != null) {
-            return new ExecutiveLoginResponse(executive.getId());
+            return new ExecutiveLoginResponse(executive.getId(), null);
         }
-        return new ExecutiveLoginResponse(null);
+        return new ExecutiveLoginResponse(null, null);
     }
 
 }

@@ -8,11 +8,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class UserRequest {
-
     private String name;
     private String firstName;
     private String lastName;
     private String email;
+    private Integer age;
     private String password;
-    private int age;
 }
