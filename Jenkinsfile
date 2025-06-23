@@ -10,6 +10,35 @@ pipeline {
         checkout scm
       }
     }
+    stage('OWASP Dependency Check'){
+      steps {
+        script {
+          def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd)}
+          def services = [
+            'config-server', 'eureka-server', 'gateway-server',
+            'ms-customer', 'ms-executive', 'ms-loan',
+            'ms-request', 'ms-simulation', 'frontend-ms'
+          ]
+          services.each { service ->
+            dir(service) {
+              dependencyCheck(
+                additionalArguments: '''
+                --scan .
+                --format JSON
+                --disableYarnAudit
+                --prettyPrint
+                ''',
+                nvdCredentialsId: 'token-nvd-api-key',
+                odcInstallation: 'owasp-dc-devsecops-pep3'
+              )
+              dependencyCheckPublisher(
+                pattern: '**/dependency-check-report.xml'
+              )
+            }
+          }
+        }
+      }
+    }
     stage('Build'){
       steps {
         script {
@@ -32,6 +61,87 @@ pipeline {
             }]
           }
           parallel buildTasks
+        }
+      }
+    }
+    stage('Unit Testing'){
+      steps {
+        script {
+          def runCommand = {cmd -> isUnix() ? sh(cmd) : bat(cmd)}
+          def services = [
+            'ms-customer', 'ms-executive', 'ms-loan',
+            'ms-request', 'ms-simulation'
+          ]
+          def testTasks = services.collectEntries { service ->
+            ["${service}": {
+              dir(service) {
+                runCommand("mvn test jacoco:report")
+              }
+            }]
+          }
+          parallel testTasks
+        }
+      }
+    }
+    stage('PMD Analysis'){
+      steps {
+        script {
+          def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
+          def services = [
+            'config-server', 'eureka-server', 'gateway-server',
+            'ms-customer', 'ms-executive', 'ms-loan',
+            'ms-request', 'ms-simulation'
+          ]
+
+          def pmdTasks = services.collectEntries { service ->
+            ["${service}": {
+              dir(service) {
+                runCommand("mvn pmd:pmd")
+              }
+            }]
+          }
+          parallel pmdTasks
+
+          services.each { service ->
+            dir(service) {
+              def pythonCmd = isUnix() ? "python3" : "python"
+              runCommand("${pythonCmd} ${env.WORKSPACE}${isUnix() ? '/' : '\\'}PMD_TO_SQ.py")
+            }
+          }
+        }
+      }
+    }
+    stage('SonarQube Analysis'){
+      steps {
+        withSonarQubeEnv("${env.SONARQUBE_ENV}"){
+          script {
+            def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
+            def lineContinuation = isUnix() ? '\\' : '^' // Detecta el carácter de continuación de línea
+            def services = [
+              'config-server', 'eureka-server', 'gateway-server',
+              'ms-customer', 'ms-executive', 'ms-loan',
+              'ms-request', 'ms-simulation'
+            ]
+            def sonarTasks = services.collectEntries { service ->
+              ["${service}": {
+                dir(service) {
+                  runCommand("""
+                    mvn sonar:sonar ${lineContinuation}
+                    -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ${lineContinuation}
+                    -Dsonar.coverage.inclusions=**/service/*.java ${lineContinuation}
+                    -Dsonar.exclusions=**/controller/** ${lineContinuation}
+                    -Dsonar.externalIssuesReportPaths=target/sonar-pmd-report.json ${lineContinuation}
+                    -Dsonar.dependencyCheck.jsonReportPath=dependency-check-report.json ${lineContinuation}
+                    -Dsonar.dependencyCheck.htmlReportPath=dependency-check-report.html ${lineContinuation}
+                    -Dsonar.dependencyCheck.xmlReportPath=dependency-check-report.xml ${lineContinuation}
+                    -Dsonar.projectKey=${service} ${lineContinuation}
+                    -Dsonar.projectName=${service}
+                  """.stripIndent())
+                }
+              }]
+            }
+            parallel sonarTasks
+          }
         }
       }
     }
@@ -74,38 +184,32 @@ pipeline {
         }
       }
     }
-    stage('Deploy Falco Security') {
-      steps {
-        script {
-          bat "docker stop falco || exit 0"
-          bat "docker rm falco || exit 0"
+  }
+  stage('Deploy Falco Security') {
+    steps {
+      script {
+        bat "docker stop falco || exit 0"
+        bat "docker rm falco || exit 0"
 
-          bat """
-            docker run -d ^
-            --name falco ^
-            --privileged ^
-            -v //var/run/docker.sock:/host/var/run/docker.sock ^
-            -v //dev:/host/dev ^
-            -v //proc:/host/proc:ro ^
-            -v //boot:/host/boot:ro ^
-            -v //lib/modules:/host/lib/modules:ro ^
-            -v //usr:/host/usr:ro ^
-            -v //etc:/host/etc:ro ^
-            falcosecurity/falco
+        bat """
+          docker run -d ^
+          --name falco ^
+          --privileged ^
+          -v //var/run/docker.sock:/host/var/run/docker.sock ^
+          -v //dev:/host/dev ^
+          -v //proc:/host/proc:ro ^
+          -v //boot:/host/boot:ro ^
+          -v //lib/modules:/host/lib/modules:ro ^
+          -v //usr:/host/usr:ro ^
+          -v //etc:/host/etc:ro ^
+          falcosecurity/falco
           """
+
           sleep(time: 10, unit: 'SECONDS')
           bat "docker logs falco --tail 50"
-        }
       }
     }
-
-    stage('Check Monitoring') {
-      steps {
-        script {
-          bat 'curl http://localhost:3000/api/health'
-        }
-      }
-    }
+  }
 
   post {
     failure {
