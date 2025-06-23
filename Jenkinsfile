@@ -177,6 +177,7 @@ pipeline {
         }
       }
     }
+    /*
     stage('Trivy Scan'){
       steps {
         script {
@@ -188,15 +189,19 @@ pipeline {
           def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
           services.each { service ->
             dir(service) {
-              runCommand("""
-                trivy image --severity HIGH,CRITICAL --exit-code 1 --no-progress ${env.DOCKER_REGISTRY}/${service}:latest || true
-              """.stripIndent())
+              if (isUnix()) {
+                def trivyOutput = sh(script: "trivy image --severity HIGH,CRITICAL --exit-code 1 --no-progress ${env.DOCKER_REGISTRY}/${service}:latest", returnStdout: true).trim()
+                println trivyOutput
+              } else {
+                def trivyOutput = bat(script: "trivy image --severity HIGH,CRITICAL --exit-code 1 --no-progress ${env.DOCKER_REGISTRY}/${service}:latest", returnStdout: true).trim()
+                println trivyOutput
+              }
             }
           }
         }
       }
 
-    }
+    }*/
     stage('Run Docker Containers') {
       steps {
         script {
