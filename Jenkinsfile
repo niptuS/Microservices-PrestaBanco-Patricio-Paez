@@ -48,11 +48,12 @@ pipeline {
             dir(service) {
               docker.build("${env.DOCKER_REGISTRY}/${service}:latest", ".")
 
-              withCredentials([usernamePassword(
+              withCredentials([[
+                $class: 'UsernamePasswordMultiBinding',
                 credentialsId: "${env.DOCKER_CREDENTIALS_ID}",
                 usernameVariable: 'DOCKER_USER',
                 passwordVariable: 'DOCKER_PASS'
-              ]) {
+              ]]) {
                 docker.withRegistry("https://${env.DOCKER_REGISTRY}", "${env.DOCKER_CREDENTIALS_ID}") {
                   docker.image("${env.DOCKER_REGISTRY}/${service}:latest").push()
                 }
