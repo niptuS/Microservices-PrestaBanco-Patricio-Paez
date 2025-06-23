@@ -31,6 +31,7 @@ pipeline {
                 additionalArguments: '''
                 --scan .
                 --format JSON
+                --format XML
                 --disableYarnAudit
                 --prettyPrint
                 ''',
