@@ -46,10 +46,8 @@ pipeline {
 
           services.each { service ->
             dir(service) {
-              // Usa el plugin Docker Pipeline para construir
               docker.build("${env.DOCKER_REGISTRY}/${service}:latest", ".")
 
-              // Autenticación y push con credenciales
               withCredentials([usernamePassword(
                 credentialsId: "${env.DOCKER_CREDENTIALS_ID}",
                 usernameVariable: 'DOCKER_USER',
@@ -64,6 +62,7 @@ pipeline {
         }
       }
     }
+
 
     stage('Run Docker Containers') {
       steps {
