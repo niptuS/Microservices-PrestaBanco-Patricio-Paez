@@ -16,39 +16,7 @@ pipeline {
         checkout scm
       }
     }
-    /*
-    stage('OWASP Dependency Check'){
-      steps {
-        script {
-          def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd)}
-          def services = [
-            'config-server', 'eureka-server', 'gateway-server',
-            'ms-customer', 'ms-executive', 'ms-loan',
-            'ms-request', 'ms-simulation', 'frontend-ms'
-          ]
-          services.each { service ->
-            dir(service) {
-              dependencyCheck(
-                additionalArguments: '''
-                --scan .
-                --format XML
-                --format HTML
-                --format JSON
-                --disableYarnAudit
-                --prettyPrint
-                ''',
-                nvdCredentialsId: 'token-nvd-api-key',
-                odcInstallation: 'owasp-dc-devsecops-pep3'
-              )
-              dependencyCheckPublisher(*/
-                //pattern: '**/dependency-check-report.xml'
-              /*)
-            }
-          }
-        }
-      }
-    }*/
-    stage('Build'){
+    stage('Build + OWASP Dependency Check'){
       steps {
         script {
           def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd)}
