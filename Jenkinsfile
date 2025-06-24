@@ -22,6 +22,8 @@ pipeline {
           def runCommand = { cmd -> isUnix() ? sh(script: cmd, returnStdout: true).trim() : bat(script: cmd, returnStdout: true).trim() }
           // Instala wget si no está presente
           runCommand('which wget || (apt-get update && apt-get install -y wget)')
+          // Instala lsof si no está presente
+          runCommand('which lsof || (apt-get update && apt-get install -y lsof)')
           // Descarga e instala Nuclei si no está presente
           runCommand('which nuclei || (curl -s https://api.github.com/repos/projectdiscovery/nuclei/releases/latest | grep "browser_download_url.*linux_amd64.zip" | cut -d \\" -f 4 | xargs wget -O nuclei.zip && unzip nuclei.zip && mv nuclei /usr/local/bin/)')
           // Busca puertos abiertos por procesos Java (Spring Boot)
