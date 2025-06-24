@@ -42,7 +42,7 @@ pipeline {
         script {
           def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
           def pythonCmd = isUnix() ? "python3" : "python"
-          runCommand("cd config-server && ${pythonCmd} -c script.py")
+          runCommand("cd config-server && ${pythonCmd} script.py")
         }
       }
     }
