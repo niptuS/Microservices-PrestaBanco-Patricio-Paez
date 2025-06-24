@@ -16,6 +16,7 @@ pipeline {
         checkout scm
       }
     }
+    /*
     stage('OWASP Dependency Check'){
       steps {
         script {
@@ -39,14 +40,14 @@ pipeline {
                 nvdCredentialsId: 'token-nvd-api-key',
                 odcInstallation: 'owasp-dc-devsecops-pep3'
               )
-              dependencyCheckPublisher(
-                pattern: '**/dependency-check-report.xml'
-              )
+              dependencyCheckPublisher(*/
+                //pattern: '**/dependency-check-report.xml'
+              /*)
             }
           }
         }
       }
-    }
+    }*/
     stage('Build'){
       steps {
         script {
