@@ -10,27 +10,27 @@ pipeline {
     nodejs "nodejs"
     maven "maven"
   }
-  stages{
-    stage('Checkout SCM'){
+  stages {
+    stage('Checkout SCM') {
       steps {
         checkout scm
       }
     }
-  // DAST or other stages...
-  stage('Nuclei DAST Scan') {
-    steps {
-      script {
-        def runCommand = { cmd -> isUnix() ? sh(script: cmd, returnStdout: true).trim() : bat(script: cmd, returnStdout: true).trim() }
-        // Instala Nuclei si no está presente
-        runCommand('which nuclei || curl -s https://api.github.com/repos/projectdiscovery/nuclei/releases/latest | grep browser_download_url | grep Linux | cut -d \\" -f 4 | wget -i - && tar -xvf nuclei*.zip && mv nuclei /usr/local/bin/')
-        // Busca puertos abiertos por procesos Java (Spring Boot)
-        def ports = runCommand("lsof -iTCP -sTCP:LISTEN -P -n | grep java | awk '{print \$9}' | grep -oE '[0-9]{4,5}' | sort -u")
-        if (!ports) {
-          error("No se detectaron puertos abiertos por procesos Java.")
-        }
-        def targets = ports.split('\n').collect { "http://localhost:${it}" }
-        targets.each { url ->
-          runCommand("nuclei -u ${url} -o nuclei-report-${url.replaceAll('[^a-zA-Z0-9]', '_')}.txt")
+    stage('Nuclei DAST Scan') {
+      steps {
+        script {
+          def runCommand = { cmd -> isUnix() ? sh(script: cmd, returnStdout: true).trim() : bat(script: cmd, returnStdout: true).trim() }
+          // Instala Nuclei si no está presente
+          runCommand('which nuclei || curl -s https://api.github.com/repos/projectdiscovery/nuclei/releases/latest | grep browser_download_url | grep Linux | cut -d \\" -f 4 | wget -i - && tar -xvf nuclei*.zip && mv nuclei /usr/local/bin/')
+          // Busca puertos abiertos por procesos Java (Spring Boot)
+          def ports = runCommand("lsof -iTCP -sTCP:LISTEN -P -n | grep java | awk '{print \$9}' | grep -oE '[0-9]{4,5}' | sort -u")
+          if (!ports) {
+            error("No se detectaron puertos abiertos por procesos Java.")
+          }
+          def targets = ports.split('\n').collect { "http://localhost:${it}" }
+          targets.each { url ->
+            runCommand("nuclei -u ${url} -o nuclei-report-${url.replaceAll('[^a-zA-Z0-9]', '_')}.txt")
+          }
         }
       }
     }
