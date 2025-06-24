@@ -33,7 +33,7 @@ pipeline {
           }
           def targets = ports.split('\n').collect { "http://localhost:${it}" }
           targets.each { url ->
-            runCommand("nuclei -u ${url} -o nuclei-report-${url.replaceAll('[^a-zA-Z0-9]', '_')}.txt")
+            runCommand("nuclei -u ${url} -stats -o nuclei-report-${url.replaceAll('[^a-zA-Z0-9]', '_')}.txt")
           }
         }
       }
