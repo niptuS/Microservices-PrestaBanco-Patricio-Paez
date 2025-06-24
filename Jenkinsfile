@@ -39,6 +39,21 @@ pipeline {
           }
           parallel buildTasks
         }
+        script {
+          def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
+          def pythonCmd = isUnix() ? "python3" : "python"
+          runCommand("""
+            ${pythonCmd} -c '
+              import json
+              with open("dependency-check-report.json", "r") as file:
+                data = json.load(file)
+              if "cvssv4 in data":
+                del data["cvssv4"]
+              with open("dependency-check-report.json", "w") as file:
+                json.dump(data, file, indent=4)
+            '
+          """)
+        }
       }
     }
     stage('Unit Testing'){
