@@ -134,6 +134,24 @@
 					</excludes>
 				</configuration>
 			</plugin>
+			<plugin>
+				<groupId>org.owasp</groupId>
+				<artifactId>dependency-check-maven</artifactId>
+				<version>12.1.1</version>
+				<configuration>
+					<format>HTML</format>
+					<format>XML</format>
+					<format>JSON</format>
+					<nvdApiKey>fc97b1cf-4546-4f3e-ae68-cd91af6a8dc6</nvdApiKey>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>aggregate</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
 

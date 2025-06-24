@@ -1,5 +1,11 @@
 pipeline {
   agent any
+  environment {
+    // ZAP Configuration
+    ZAP_VERSION = '2.16.1'
+    ZAP_API_KEY = "${UUID.randomUUID().toString()}"
+    ZAP_HOME = "${env.WORKSPACE}/.security-cache/zap"
+  }
   tools {
     nodejs "nodejs"
     maven "maven"
@@ -10,36 +16,7 @@ pipeline {
         checkout scm
       }
     }
-    stage('OWASP Dependency Check'){
-      steps {
-        script {
-          def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd)}
-          def services = [
-            'config-server', 'eureka-server', 'gateway-server',
-            'ms-customer', 'ms-executive', 'ms-loan',
-            'ms-request', 'ms-simulation', 'frontend-ms'
-          ]
-          services.each { service ->
-            dir(service) {
-              dependencyCheck(
-                additionalArguments: '''
-                --scan .
-                --format JSON
-                --disableYarnAudit
-                --prettyPrint
-                ''',
-                nvdCredentialsId: 'token-nvd-api-key',
-                odcInstallation: 'owasp-dc-devsecops-pep3'
-              )
-              dependencyCheckPublisher(
-                pattern: '**/dependency-check-report.xml'
-              )
-            }
-          }
-        }
-      }
-    }
-    stage('Build'){
+    stage('Build + OWASP Dependency Check'){
       steps {
         script {
           def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd)}
@@ -173,6 +150,31 @@ pipeline {
         }
       }
     }
+    /*
+    stage('Trivy Scan'){
+      steps {
+        script {
+          def services = [
+            'config-server', 'eureka-server', 'gateway-server',
+            'ms-customer', 'ms-executive', 'ms-loan',
+            'ms-request', 'ms-simulation', 'frontend-ms'
+          ]
+          def runCommand = { cmd -> isUnix() ? sh(cmd) : bat(cmd) }
+          services.each { service ->
+            dir(service) {
+              if (isUnix()) {
+                def trivyOutput = sh(script: "trivy image --severity HIGH,CRITICAL --exit-code 1 --no-progress ${env.DOCKER_REGISTRY}/${service}:latest", returnStdout: true).trim()
+                println trivyOutput
+              } else {
+                def trivyOutput = bat(script: "trivy image --severity HIGH,CRITICAL --exit-code 1 --no-progress ${env.DOCKER_REGISTRY}/${service}:latest", returnStdout: true).trim()
+                println trivyOutput
+              }
+            }
+          }
+        }
+      }
+
+    }*/
     stage('Run Docker Containers') {
       steps {
         script {
@@ -184,39 +186,127 @@ pipeline {
         }
       }
     }
-  }
-  stage('Deploy Falco Security') {
+  // DAST or other stages...
+    stage('DAST with OWASP ZAP') {
     steps {
-      script {
-        bat "docker stop falco || exit 0"
-        bat "docker rm falco || exit 0"
-
-        bat """
-          docker run -d ^
-          --name falco ^
-          --privileged ^
-          -v //var/run/docker.sock:/host/var/run/docker.sock ^
-          -v //dev:/host/dev ^
-          -v //proc:/host/proc:ro ^
-          -v //boot:/host/boot:ro ^
-          -v //lib/modules:/host/lib/modules:ro ^
-          -v //usr:/host/usr:ro ^
-          -v //etc:/host/etc:ro ^
-          falcosecurity/falco
-          """
-
-          sleep(time: 10, unit: 'SECONDS')
-          bat "docker logs falco --tail 50"
-      }
+        script {
+        if (isUnix()) {
+            // Linux commands
+            sh '''
+                if [ ! -d "$WORKSPACE/.security-cache/zap/ZAP_${ZAP_VERSION}" ]; then
+                    echo "Installing OWASP ZAP..."
+                    mkdir -p $WORKSPACE/.security-cache/zap
+                    cd $WORKSPACE/.security-cache/zap
+                    wget -q https://github.com/zaproxy/zaproxy/releases/download/v${ZAP_VERSION}/ZAP_${ZAP_VERSION}_Linux.tar.gz
+                    tar -xzf ZAP_${ZAP_VERSION}_Linux.tar.gz
+                    chmod +x ZAP_${ZAP_VERSION}/zap.sh
+                fi
+            '''
+            sh '''
+                echo "Starting ZAP daemon..."
+                $WORKSPACE/.security-cache/zap/ZAP_${ZAP_VERSION}/zap.sh -daemon -host 0.0.0.0 -port 8090 -config api.key=${ZAP_API_KEY} &
+                ZAP_PID=$!
+                echo $ZAP_PID > zap.pid
+                timeout 60 bash -c 'until curl -s http://localhost:8090 >/dev/null; do sleep 2; done'
+            '''
+            sh '''
+                echo "Running ZAP baseline scan..."
+                python3 $WORKSPACE/.security-cache/zap/ZAP_${ZAP_VERSION}/zap-baseline.py \
+                -t http://localhost:8080 \
+                -g gen.conf \
+                -r zap-baseline-report.html \
+                -J zap-baseline-report.json \
+                -w zap-baseline-report.md \
+                -z "-config api.key=${ZAP_API_KEY}"
+            '''
+            sh '''
+                echo "Running ZAP full scan on critical endpoints..."
+                python3 $WORKSPACE/.security-cache/zap/ZAP_${ZAP_VERSION}/zap-full-scan.py \
+                -t http://localhost:8080/api \
+                -g gen.conf \
+                -r zap-full-report.html \
+                -J zap-full-report.json \
+                -w zap-full-report.md \
+                -z "-config api.key=${ZAP_API_KEY}" \
+                -I
+            '''
+        } else {
+        // Windows commands
+            bat '''
+                echo Downloading OWASP ZAP...
+                if not exist "%WORKSPACE%\\.security-cache\\zap\\ZAP_${ZAP_VERSION}" (
+                    mkdir "%WORKSPACE%\\.security-cache\\zap"
+                    cd "%WORKSPACE%\\.security-cache\\zap"
+                    powershell -Command "Invoke-WebRequest https://github.com/zaproxy/zaproxy/releases/download/v${ZAP_VERSION}/ZAP_${ZAP_VERSION}_Crossplatform.zip -OutFile ZAP_${ZAP_VERSION}_Crossplatform.zip"
+                    powershell -Command "Expand-Archive -Force ZAP_${ZAP_VERSION}_Crossplatform.zip ZAP_${ZAP_VERSION}"
+                    del ZAP_${ZAP_VERSION}_Crossplatform.zip
+                    cd ZAP_${ZAP_VERSION}/ZAP_${ZAP_VERSION}
+                    echo Starting ZAP daemon...
+                    .\\zap.bat -daemon -host 0.0.0.0 -port 8090 -config api.key=${ZAP_API_KEY}
+                )
+            '''
+            bat '''
+                echo Running ZAP baseline scan...
+                python "%WORKSPACE%\\.security-cache\\zap\\ZAP_${ZAP_VERSION}\\zap-baseline.py" ^
+                -t http://localhost:8080 ^
+                -g gen.conf ^
+                -r zap-baseline-report.html ^
+                -J zap-baseline-report.json ^
+                -w zap-baseline-report.md ^
+                -z "-config api.key=${ZAP_API_KEY}"
+            '''
+            bat '''
+                echo Running ZAP full scan on critical endpoints...
+                python "%WORKSPACE%\\.security-cache\\zap\\ZAP_${ZAP_VERSION}\\zap-full-scan.py" ^
+                -t http://localhost:8080/api ^
+                -g gen.conf ^
+                -r zap-full-report.html ^
+                -J zap-full-report.json ^
+                -w zap-full-report.md ^
+                -z "-config api.key=${ZAP_API_KEY}" ^
+                -I
+            '''
+        }
     }
   }
-
+  post {
+    always {
+      script {
+        if (isUnix()) {
+          sh '''
+            if [ -f zap.pid ]; then
+            kill $(cat zap.pid) || true
+            rm -f zap.pid
+            fi
+          '''
+        } else {
+          bat '''
+            if exist zap.pid (
+            for /F "usebackq" %%i in ("zap.pid") do taskkill /PID %%i /F
+            del zap.pid
+            )
+          '''
+        }
+      }
+      archiveArtifacts artifacts: 'zap-*-report.*', allowEmptyArchive: true
+      publishHTML([
+        allowMissing: false,
+        alwaysLinkToLastBuild: true,
+        keepAll: true,
+        reportDir: '.',
+        reportFiles: 'zap-*-report.html',
+        reportName: 'OWASP ZAP DAST Report'
+      ])
+    }
+  }
+}
+  }
   post {
     failure {
       echo 'Error in pipeline.'
     }
     success {
-      echo 'Pipeline completed successfully.'
+      echo 'Pipeline completed.'
     }
   }
 }
